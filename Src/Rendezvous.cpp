@@ -1,14 +1,14 @@
 #include "Rendezvous.hpp"
 
 RendezvousServer::RendezvousServer(const char *const ip_addr_str, const uint16_t port) :
-    sockfd    (0),
-    sock_addr ({})
+    sockfd (0)
 {
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
     in_addr_t ip_addr;
     assert(inet_pton(AF_INET, ip_addr_str, &ip_addr) > 0);
 
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    sock_addr = {
+    sockaddr_in sock_addr = {
         .sin_family = AF_INET,
         .sin_port = port,
         .sin_addr = ip_addr
@@ -22,7 +22,7 @@ RendezvousServer::~RendezvousServer()
     assert(close(sockfd) == 0);
 }
 
-void RendezvousServer::run()
+void RendezvousServer::run() const
 {
     const SockAddrWrapper ipA_global = waitClient();
     const SockAddrWrapper ipB_global = waitClient();
@@ -36,7 +36,7 @@ void RendezvousServer::run()
     sendAIpOfB(ipA_global, clientB);
 }
 
-SockAddrWrapper RendezvousServer::getLocalIpFrom(const SockAddrWrapper from_global_ip)
+SockAddrWrapper RendezvousServer::getLocalIpFrom(const SockAddrWrapper from_global_ip) const
 {
     SockAddrWrapper ip_local;
     while (true)
@@ -66,7 +66,7 @@ SockAddrWrapper RendezvousServer::getLocalIpFrom(const SockAddrWrapper from_glob
     return ip_local;
 }
 
-SockAddrWrapper RendezvousServer::waitClient()
+SockAddrWrapper RendezvousServer::waitClient() const
 {
     SockAddrWrapper client_global_ip;
     while (true)
@@ -96,7 +96,7 @@ SockAddrWrapper RendezvousServer::waitClient()
     return client_global_ip;
 }
 
-SockAddrWrapper RendezvousServer::recvIpFromA(const SockAddrWrapper ipA_global)
+SockAddrWrapper RendezvousServer::recvIpFromA(const SockAddrWrapper ipA_global) const
 {
     const BaseRequest start_send_local_req(RequestType::GIVE_IP);
     sendto(
@@ -111,7 +111,7 @@ SockAddrWrapper RendezvousServer::recvIpFromA(const SockAddrWrapper ipA_global)
     return getLocalIpFrom(ipA_global);
 }
 
-SockAddrWrapper RendezvousServer::recvIpFromB(const ClientAddr clientA, const SockAddrWrapper ipB_global)
+SockAddrWrapper RendezvousServer::recvIpFromB(const ClientAddr clientA, const SockAddrWrapper ipB_global) const
 {
     const LocalGlobalAddrRequest send_ipA_req(clientA);
     sendto(
@@ -126,7 +126,7 @@ SockAddrWrapper RendezvousServer::recvIpFromB(const ClientAddr clientA, const So
     return getLocalIpFrom(ipB_global);
 }
 
-void RendezvousServer::sendAIpOfB(const SockAddrWrapper ipA_global, const ClientAddr clientB)
+void RendezvousServer::sendAIpOfB(const SockAddrWrapper ipA_global, const ClientAddr clientB) const
 {
     const LocalGlobalAddrRequest send_B_addr_req(clientB);
     sendto(
@@ -169,7 +169,7 @@ RendezvousServer parseCmd(const int argc, const char **argv, const arg_parser::o
 
 int main(const int argc, const char **argv) {
     const arg_parser::options_description desc = createParser();
-    RendezvousServer server = parseCmd(argc, argv, desc);
+    const RendezvousServer server = parseCmd(argc, argv, desc);
 
     server.run();
 

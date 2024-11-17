@@ -87,13 +87,13 @@ public:
         local       ()
     {}
 
-    explicit LocalAddrRequest(sockaddr_in local_) :
+    explicit LocalAddrRequest(const SockAddrWrapper local_) :
         BaseRequest (RequestType::LOCAL_ADDR),
         local       (local_)
     {}
 
 public:
-    sockaddr_in local;
+    SockAddrWrapper local;
 };
 
 struct LocalGlobalAddrRequest : public BaseRequest
