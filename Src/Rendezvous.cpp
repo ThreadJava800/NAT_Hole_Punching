@@ -2,8 +2,7 @@
 
 RendezvousServer::RendezvousServer(const char *const ip_addr_str, const uint16_t port) :
     sockfd    (0),
-    sock_addr ({}),
-    clients   ()
+    sock_addr ({})
 {
     in_addr_t ip_addr;
     assert(inet_pton(AF_INET, ip_addr_str, &ip_addr) > 0);
@@ -23,79 +22,121 @@ RendezvousServer::~RendezvousServer()
     assert(close(sockfd) == 0);
 }
 
-[[noreturn]] void RendezvousServer::run()
+void RendezvousServer::run()
 {
-    // server is able to work only with 2 clients.
-    acquireClient();
-    acquireClient();
+    const SockAddrWrapper ipA_global = waitClient();
+    const SockAddrWrapper ipB_global = waitClient();
 
-    assert(clients.size() >= 2);
+    const SockAddrWrapper ipA_local = recvIpFromA(ipA_global);
 
-    // send ips to clients and wait for confirmation
-    runDaemon();
+    const ClientAddr clientA(ipA_local, ipA_global);
+    const SockAddrWrapper ipB_local = recvIpFromB(clientA, ipB_global);
+
+    const ClientAddr clientB(ipB_local, ipB_global);
+    sendAIpOfB(ipA_global, clientB);
 }
 
-void RendezvousServer::acquireClient()
+SockAddrWrapper RendezvousServer::getLocalIpFrom(const SockAddrWrapper from_global_ip)
 {
-    LocalAddrRequest local_addr_req;
-    sockaddr_in client_addr;
-    socklen_t client_addr_len = sizeof(client_addr);
-
-    recvfrom(
-        sockfd,
-        &local_addr_req,
-        sizeof(local_addr_req),
-        MSG_WAITALL,
-        (sockaddr*)&client_addr,
-        &client_addr_len
-    );
-
-    clients.emplace_back(local_addr_req.local, std::pair<in_addr_t, in_port_t>(client_addr.sin_addr.s_addr, client_addr.sin_port));
-}
-
-[[noreturn]] void RendezvousServer::runDaemon()
-{
+    SockAddrWrapper ip_local;
     while (true)
     {
-        BaseRequest get_peer_request;
+        LocalAddrRequest local_addr_req;
         sockaddr_in client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
 
         recvfrom(
             sockfd,
-            &get_peer_request,
-            sizeof(get_peer_request),
+            &local_addr_req,
+            sizeof(local_addr_req),
             MSG_WAITALL,
             (sockaddr*)&client_addr,
             &client_addr_len
         );
 
-        const auto found_pos = std::find_if(
-                                    clients.begin(), 
-                                    clients.end(), 
-                                    [&client_addr](const ClientAddr& val) {
-                                        return val.local == std::pair<in_addr_t, in_port_t>(client_addr.sin_addr.s_addr, client_addr.sin_port);
-                                    }
-                                );
-        if (found_pos != clients.end())
+        if (local_addr_req.type != RequestType::LOCAL_ADDR || from_global_ip != client_addr)
         {
-            for (auto it = clients.begin(); it != clients.end(); ++it)
-            {
-                if (it != found_pos)
-                {
-                    LocalGlobalAddrRequest local_global_addr_req(*it);
-                    sendto(
-                        sockfd,
-                        &local_global_addr_req,
-                        sizeof(local_global_addr_req),
-                        0,
-                        (sockaddr*)&client_addr,
-                        client_addr_len
-                    );
-                }
-            }
+            continue;
         }
+
+        ip_local = client_addr;
+        break;
     }
+
+    return ip_local;
+}
+
+SockAddrWrapper RendezvousServer::waitClient()
+{
+    SockAddrWrapper client_global_ip;
+    while (true)
+    {
+        BaseRequest open_session_req;
+        sockaddr_in client_addr;
+        socklen_t client_addr_len = sizeof(client_addr);
+
+        recvfrom(
+            sockfd,
+            &open_session_req,
+            sizeof(open_session_req),
+            MSG_WAITALL,
+            (sockaddr*)&client_addr,
+            &client_addr_len
+        );
+
+        if (open_session_req.type != RequestType::SYN)
+        {
+            continue;
+        }
+
+        client_global_ip = client_addr;
+        break;
+    }
+
+    return client_global_ip;
+}
+
+SockAddrWrapper RendezvousServer::recvIpFromA(const SockAddrWrapper ipA_global)
+{
+    const BaseRequest start_send_local_req(RequestType::GIVE_IP);
+    sendto(
+        sockfd,
+        &start_send_local_req,
+        sizeof(start_send_local_req),
+        0,
+        (const sockaddr*)&ipA_global.addr,
+        sizeof(ipA_global.addr)
+    );
+
+    return getLocalIpFrom(ipA_global);
+}
+
+SockAddrWrapper RendezvousServer::recvIpFromB(const ClientAddr clientA, const SockAddrWrapper ipB_global)
+{
+    const LocalGlobalAddrRequest send_ipA_req(clientA);
+    sendto(
+        sockfd,
+        &send_ipA_req,
+        sizeof(send_ipA_req),
+        0,
+        (const sockaddr*)&ipB_global.addr,
+        sizeof(ipB_global.addr)
+    );
+
+    return getLocalIpFrom(ipB_global);
+}
+
+void RendezvousServer::sendAIpOfB(const SockAddrWrapper ipA_global, const ClientAddr clientB)
+{
+    const LocalGlobalAddrRequest send_B_addr_req(clientB);
+    sendto(
+        sockfd,
+        &send_B_addr_req,
+        sizeof(send_B_addr_req),
+        0,
+        (const sockaddr*)&ipA_global.addr,
+        sizeof(ipA_global.addr)
+    );
 }
 
 arg_parser::options_description createParser()

@@ -6,8 +6,36 @@
 #include <iostream>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <vector>
 
 namespace arg_parser = boost::program_options;
+
+struct SockAddrWrapper
+{
+public:
+    explicit SockAddrWrapper() :
+        addr({})
+    {}
+
+    SockAddrWrapper(const sockaddr_in addr_) :
+        addr(addr_)
+    {}
+
+    friend bool operator==(const SockAddrWrapper &lhs, const SockAddrWrapper &rhs)
+    {
+        return lhs.addr.sin_addr.s_addr == rhs.addr.sin_addr.s_addr &&
+               lhs.addr.sin_port        == rhs.addr.sin_port;
+    }
+
+    friend bool operator!=(const SockAddrWrapper &lhs, const sockaddr_in &rhs)
+    {
+        return lhs.addr.sin_addr.s_addr != rhs.sin_addr.s_addr ||
+               lhs.addr.sin_port        != rhs.sin_port;
+    }
+
+public:
+    sockaddr_in addr;
+};
 
 struct ClientAddr
 {
@@ -17,13 +45,13 @@ public:
         global ()
     {}
 
-    explicit ClientAddr(std::pair<in_addr_t, in_port_t> local_, std::pair<in_addr_t, in_port_t> global_) :
+    explicit ClientAddr(const SockAddrWrapper local_, const SockAddrWrapper global_) :
         local  (local_),
         global (global_)
     {}
 
 public:
-    std::pair<in_addr_t, in_port_t> local, global;
+    SockAddrWrapper local, global;
 };
 
 enum class RequestType
@@ -31,7 +59,9 @@ enum class RequestType
     DEFAULT,
     LOCAL_ADDR,             // only local addr
     LOCAL_GLOBAL_ADDR,      // local addr + global addr
-    GET_PEER                // request peer ip
+    GET_PEER,               // request peer ip
+    SYN,                    // create session
+    GIVE_IP                 // event is sent to A client signalizing he can start sending local addr
 };
 
 struct BaseRequest
@@ -57,13 +87,13 @@ public:
         local       ()
     {}
 
-    explicit LocalAddrRequest(std::pair<in_addr_t, in_port_t> local_) :
+    explicit LocalAddrRequest(sockaddr_in local_) :
         BaseRequest (RequestType::LOCAL_ADDR),
         local       (local_)
     {}
 
 public:
-    std::pair<in_addr_t, in_port_t> local;
+    sockaddr_in local;
 };
 
 struct LocalGlobalAddrRequest : public BaseRequest
