@@ -2,7 +2,7 @@
 
 #include "Common.hpp"
 
-#define MAX_MESSAGE_CNT 50
+#define MAX_MESSAGE_CNT 5
 #define MAX_MESSAGE_LEN 0x100
 #define UDP_DEFAULT_TIMEOUT_SEC 600
 

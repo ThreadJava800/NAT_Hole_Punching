@@ -258,7 +258,7 @@ bool Client::sendMessageToPeer(const SockAddrWrapper peer) const
 {
     std::string message;
     std::cout << "Enter message: ";
-    std::cin >> message;
+    std::getline(std::cin, message);
 
     if (message.size() > MAX_MESSAGE_LEN)
     {
@@ -269,7 +269,7 @@ bool Client::sendMessageToPeer(const SockAddrWrapper peer) const
     const char *msg_cstr = message.c_str();
     sendto(
         sockfd,
-        &msg_cstr,
+        msg_cstr,
         message.size(),
         0,
         (const sockaddr*)&peer.addr,
@@ -280,7 +280,7 @@ bool Client::sendMessageToPeer(const SockAddrWrapper peer) const
 
 void Client::recvMessageFromPeer() const
 {
-    char *peer_answer;
+    char peer_answer[MAX_MESSAGE_LEN] = {'\0'};
     sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
     recvfrom(
