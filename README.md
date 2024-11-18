@@ -1,6 +1,6 @@
 # NAT Hole Punching
 
-This simple program shows an example of NAT Hole Punching between 2 peers over UDP. Repository contains implementations of client side and server (Rendezvous) side. In the beginning of communication clients send their local ips to Rendezvous. Then Rendezvous server, sends pairs <local_peer_addr, global_peer_addr> back to peers. After clients received their peer address pair, they try to find out by which address the peer would respond. After one ip is confirmed, connection could be established.
+This simple program shows an example of NAT Hole Punching between 2 peers over UDP. Repository contains implementations of client side and server (Rendezvous) side. In the beginning of communication clients send their local ips to Rendezvous. Then Rendezvous server sends pairs <local_peer_addr, global_peer_addr> back to peers. After clients received their peer address pair, they try to find out by which address the peer would respond. After one of ips is confirmed, connection could be established.
 
 ## Usage
 Compiling (you must have [boost_program_options](https://packages.debian.org/ru/sid/libboost-program-options-dev) installed):
